@@ -1,0 +1,188 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-app
+  annotations:
+    seccomp.security.alpha.kubernetes.io/pod: "runtime/default"
+    security.alpha.kubernetes.io/unsafe-sysctls: net.core.somaxconn=65535
+  labels:
+    app: stress-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stress-app
+  template:
+    metadata:
+      labels:
+        app: stress-app
+    spec:
+      automountServiceAccountToken: false
+      # imagePullSecrets:
+      # - name: reg-secret
+      # nodeSelector:
+      #   kubernetes.io/hostname: 10.177.92.6
+      # priorityClassName: high-priority
+      containers:
+      - name: stress-app
+        image: currycan/stress-app:0.0.6-arm
+        # command:
+        #   - sh
+        #   - -c
+        #   - |
+        #     mkdir -p ${JVM_LOGS}
+        #     exec java ${APP_OPTS} ${JMX} ${JAVA_OPTS} ${JVM_ARGS} ${JVM_GC} -jar "${WORKDIR}/${JAR_FILE}" "$@"
+        args:
+          - "--file.path=/etc/hosts"
+        # imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
+        # 配置容器 workdir,目录不存在会自动创建！
+        # workingDir: /workdir
+        ports:
+        - name: http
+          containerPort: 8080
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - sleep 1
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - sleep 1
+        env:
+        - name: MY_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: stress-app
+              resource: limits.cpu
+        - name: PODNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: PODIP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: DEPLOYMENT_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['app']
+        # https://kubernetes.io/docs/tasks/inject-data-application/define-interdependent-environment-variables/
+        - name: APP_OPTS
+          value: ''
+        - name: JMX_PORT
+          value: "18088"
+        - name: JMX
+          value: "-javaagent:/jmx/jmx_prometheus_javaagent.jar=$(JMX_PORT):/jmx/jmx-config.yaml"
+        - name: APP_LOGS
+          value: "/app/logs"
+        - name: JVM_LOGS
+          value: "/jvm/logs"
+        - name: JAVA_OPTS
+          value: >-
+            -XX:+UseG1GC
+            -XX:MaxGCPauseMillis=150
+            -XX:InitiatingHeapOccupancyPercent=40
+            -XX:ActiveProcessorCount=$(MY_CPU_LIMIT)
+            -XX:+ParallelRefProcEnabled
+        - name: JVM_ARGS
+          value: >-
+            -XX:+UseContainerSupport
+            -XX:-UseAdaptiveSizePolicy
+            -XX:+UnlockExperimentalVMOptions
+            -XX:InitialRAMPercentage=75.0
+            -XX:MaxRAMPercentage=75.0
+            -XX:MinRAMPercentage=75.0
+        - name: JVM_GC
+          value: >-
+            -XX:+PrintTenuringDistribution
+            -XX:+PrintGCDetails
+            -XX:+PrintGCDateStamps
+            -XX:+PrintHeapAtGC
+            -XX:+UseGCLogFileRotation
+            -XX:NumberOfGCLogFiles=5
+            -XX:GCLogFileSize=100M
+            -Xloggc:$(JVM_LOGS)/gc-$(PODIP)-$(PODNAME)-%t.log
+            -XX:ErrorFile=$(JVM_LOGS)/hs-err-$(PODIP)-$(PODNAME)-%p.log
+            -XX:+PrintGCApplicationStoppedTime
+            -XX:+PrintGCApplicationConcurrentTime
+            -XX:+HeapDumpOnOutOfMemoryError
+            -XX:+PrintClassHistogramBeforeFullGC
+            -XX:+PrintClassHistogramAfterFullGC
+            -XX:HeapDumpPath=$(JVM_LOGS)/dump-$(PODIP)-$(PODNAME)-%t.hprof
+        - name: TZ
+          value: Asia/Shanghai
+        resources:
+          limits:
+            cpu: 2
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /actuator/health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 10
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /actuator/health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+        # securityContext:
+        #   # 以特权运行容器，需要提前在kube-apiserver和kubelet启动时添加参数--allow-privileged=true（默认开启）
+        #   # 可以使用sudo提升到root权限，建议关闭
+        #   privileged: false
+        #   # 禁止/允许其他进程获取比父进程更多的特权,privileged=true时，一定要设置为 true
+        #   allowPrivilegeEscalation: false
+        #   runAsNonRoot: true
+        #   runAsUser: 9001
+        #   runAsGroup: 9001
+        #   # 应用需要写入文件（如日志）的，开启会导致应用启动失败
+        #   readOnlyRootFilesystem: false
+        #   # # 当以 root 用户启动时, 配置 capabilities 需要：privileged=true
+        #   # https://unofficial-kubernetes.readthedocs.io/en/latest/concepts/policy/container-capabilities/
+        #   capabilities:
+        #     add:
+        #     - NET_BIND_SERVICE
+        #     - CHOWN
+        #     - SETGID
+        #     - SETUID
+        #     drop:
+        #     - all
+        volumeMounts:
+        - name: data
+          # mountPath: $(APP_LOGS) # 不生效
+          mountPath: "/app/logs"
+          # https://loggie-io.github.io/docs/user-guide/use-in-kubernetes/collect-container-logs/
+          # subPathExpr: $(NAMESPACE)/$(DEPLOYMENT_NAME)
+          subPathExpr: $(NAMESPACE)/$(PODNAME)
+        - name: data
+          # mountPath: $(JVM_LOGS)
+          mountPath: "/jvm/logs"
+          # subPathExpr: $(NAMESPACE)/$(DEPLOYMENT_NAME)
+          subPathExpr: $(NAMESPACE)/$(PODNAME)
+      volumes:
+      - name: data
+        hostPath:
+          path: /data

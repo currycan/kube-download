@@ -39,13 +39,13 @@ spec:
       containers:
       - name: stress-app
         # image: currycan/stress-app:0.0.5-alpine
-        image: currycan/stress-app:0.0.5
-        command:
-          - sh
-          - -c
-          - |
-            mkdir -p ${JVM_LOGS}
-            exec java ${APP_OPTS} ${JMX} ${JAVA_OPTS} ${JVM_ARGS} ${JVM_GC} -jar "${WORKDIR}/${JAR_FILE}" "$@"
+        image: currycan/stress-app:0.0.6
+        # command:
+        #   - sh
+        #   - -c
+        #   - |
+        #     mkdir -p ${JVM_LOGS}
+        #     exec java ${APP_OPTS} ${JMX} ${JAVA_OPTS} ${JVM_ARGS} ${JVM_GC} -jar "${WORKDIR}/${JAR_FILE}" "$@"
         args:
           - "--file.path=/etc/hosts"
         # imagePullPolicy: IfNotPresent
@@ -96,9 +96,11 @@ spec:
         - name: JMX_PORT
           value: "18088"
         - name: JMX
-          value: "-javaagent:/jmx/jmx_prometheus_javaagent.jar=$(JMX_PORT):/jmx/jmx-config.yaml "
+          value: "-javaagent:/jmx/jmx_prometheus_javaagent.jar=$(JMX_PORT):/jmx/jmx-config.yaml"
+        - name: APP_LOGS
+          value: "/app/logs"
         - name: JVM_LOGS
-          value: /app/logs/$(NAMESPACE)/$(DEPLOYMENT_NAME)
+          value: "/jvm/logs"
         - name: JAVA_OPTS
           value: >-
             -XX:+UseG1GC
@@ -111,9 +113,9 @@ spec:
             -XX:+UseContainerSupport
             -XX:-UseAdaptiveSizePolicy
             -XX:+UnlockExperimentalVMOptions
-            -XX:InitialRAMPercentage=60.0
-            -XX:MaxRAMPercentage=60.0
-            -XX:MinRAMPercentage=25.0
+            -XX:InitialRAMPercentage=75.0
+            -XX:MaxRAMPercentage=75.0
+            -XX:MinRAMPercentage=75.0
         - name: JVM_GC
           value: >-
             -XX:+PrintTenuringDistribution
@@ -136,9 +138,9 @@ spec:
         resources:
           limits:
             cpu: 2
-            memory: 256Mi
+            memory: 2Gi
           requests:
-            cpu: 1
+            cpu: 100m
             memory: 128Mi
         livenessProbe:
           failureThreshold: 3
@@ -182,10 +184,18 @@ spec:
         #     drop:
         #     - all
         volumeMounts:
-        - name: dd-file
-          mountPath: /app/logs/
-          subPathExpr: $(PODNAME)
+        - name: data
+          # mountPath: $(APP_LOGS) # 不生效
+          mountPath: "/app/logs"
+          # https://loggie-io.github.io/docs/user-guide/use-in-kubernetes/collect-container-logs/
+          # subPathExpr: $(NAMESPACE)/$(DEPLOYMENT_NAME)
+          subPathExpr: $(NAMESPACE)/$(PODNAME)
+        - name: data
+          # mountPath: $(JVM_LOGS)
+          mountPath: "/jvm/logs"
+          # subPathExpr: $(NAMESPACE)/$(DEPLOYMENT_NAME)
+          subPathExpr: $(NAMESPACE)/$(PODNAME)
       volumes:
-      - name: dd-file
+      - name: data
         persistentVolumeClaim:
           claimName: data
