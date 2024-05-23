@@ -1,4 +1,6 @@
+# https://github.com/fabric8io-images/java/blob/master/images/alpine/openjdk8/jdk/Dockerfile
 FROM alpine:3
+
 
 LABEL maintainer="andrew <ansandy@foxmail.com>"
 
