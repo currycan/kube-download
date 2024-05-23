@@ -1,5 +1,20 @@
 # 安装
 
+
+helm install cilium cilium/cilium --version 1.14.4 \
+  --namespace kube-system \
+  --set ipam.mode=kubernetes \
+  --set kubeProxyReplacement=strict \
+  --set autoDirectNodeRoutes=true \
+  --set ipv4NativeRoutingCIDR="172.30.0.0/16" \
+  --set tunnel=disabled \
+  --set k8sServiceHost="apiserver.k8s.local" \
+  --set k8sServicePort=6443 \
+  --set operator.replicas=2 \
+  --set devices=eth0
+
+  --set operator.nodeSelector."beta\\.kubernetes\\.io/os"=worker \
+
 ```bash
 helm repo add cilium https://helm.cilium.io/
 
