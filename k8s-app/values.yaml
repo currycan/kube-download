@@ -1,0 +1,234 @@
+---
+nameOverride: ""
+fullnameOverride: ""
+
+global:
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: ""
+  podAnnotations: {}
+  extraContainers:
+    enabled: false
+    image: {}
+  initContainers:
+    enabled: false
+    image: {}
+
+useDeployment: true
+useStatefulSet: false
+useDaemonSet: false
+
+labels:
+  cmdb/app_id: "Undefined"
+  cmdb/id: "Undefined"
+  cmdb/name: "Undefined"
+  cmdb/trigram: "Undefined"
+  app/component: "Undefined"
+  app/language: "Undefined"
+
+image:
+  repository: docker.io/nginx
+  pullPolicy: IfNotPresent
+  tag: "alpine"
+
+imagePullSecrets: []
+
+replicaCount: 1
+
+priorityClassName: ""
+
+schedulerName: ""
+
+# vidia INCLUDE ONLY IF NEEDED
+runtimeClassName: ""
+
+## The environment variables injected by service links are not used, but can lead to slow boot times or slow running of the scripts when there are many services in the current namespace.
+## If you experience slow pod startups or slow running of the scripts you probably want to set this to `false`.
+enableServiceLinks: false
+
+hostNetwork: false
+## dnsPolicy: ClusterFirst
+## dnsPolicy: ClusterFirstWithHostNet
+dnsPolicy: ""
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate: {}
+    # maxUnavailable: "25%"
+    # maxSurge: "25%"
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate: {}
+  # # for StatefulSet
+  #   partition: 1
+  # # for Daemonset
+  #   maxUnavailable: 1
+
+serviceAccount:
+  create: false
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  enabled: false
+  fsGroupChangePolicy: Always
+  sysctls: []
+  supplementalGroups: []
+  fsGroup: 1001
+
+containerSecurityContext:
+  enabled: false
+  seLinuxOptions: {}
+  runAsUser: 1001
+  runAsGroup: 1001
+  runAsNonRoot: true
+  privileged: false
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: "RuntimeDefault"
+
+service:
+  enabled: true
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      name: http
+
+ingress:
+  enabled: false
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths: []
+      tls: []
+
+resources: {}
+
+terminationGracePeriodSeconds: {}
+
+hostAliases: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+volumes: []
+
+volumeMounts: []
+
+persistence:
+  enabled: false  # if true create a pvc and dynamically provision underlying PV.
+  size: 1Gi
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  volumeName: ""
+  mountPath: ""  # if mountPath is defined, automatically mount that volume.
+  csi: {}
+  mountOptions: []
+
+# For StatefulSet
+volumeClaimTemplates:
+  persistence:
+    enabled: false
+    size: 1Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    volumeName: ""
+    mountPath: ""  # if mountPath is defined, automatically mount that volume.
+    csi: {}
+    mountOptions: []
+
+application:
+  enabled: true
+  ports:
+    - name: http
+      containerPort: 8080
+      protocol: TCP
+  probes: {}
+
+dnsConfig: {}
+
+initContainers: []
+
+extraContainers: []
+
+jobs: []
+
+batch:
+  enabled: false
+
+monitoring:
+  serviceMonitor:
+    enabled: false
+    endpoints:
+      - port: metrics
+        interval: ""
+        path: /metrics
+        scrapeTimeout: ""
+        honorLabels: true
+        scheme: ""
+        relabelings: []
+        metricRelabelings: []
+
+autoscaling:
+  enabled: false
+  scaleTargetRef:
+    apiVersion: ""
+    kind: ""
+    name: ""
+    envSourceContainerName: ""
+  pollingInterval: ""
+  cooldownPeriod: ""
+  idleReplicaCount: ""
+  minReplicaCount: ""
+  maxReplicaCount: ""
+  fallback: {}
+  advanced:
+    restoreToOriginalReplicaCount: ""
+    horizontalPodAutoscalerConfig:
+      name: ""
+      behavior: {}
+  triggers: []
+  triggerAuthentication: {}
+
+externalSecret:
+  enabled: false
+  provider: vault
+  secretObjects: []
+  azure:
+    usePodIdentity: "false"
+    useVMManagedIdentity: "true"
+    userAssignedIdentityID: ""
+    keyvaultName: ""
+    cloudName: ""
+    resourceGroup: ""
+    subscriptionId: ""
+    tenantId: ""
+    objectsArray: []
+
+certificate:
+  annotations:
+    venafi.cert-manager.io/custom-fields: |-
+      [
+        {"name": "DevicesRequested", "value": "unknown"}
+      ]
+  duration: ""
+  renewBefore: ""
+  organizations: []
+  dnsNames: []
+  privateKey:
+    algorithm: ""
+    encoding: ""
+    size: ""
+    rotationPolicy: ""
+  issuer: tpp-venafi

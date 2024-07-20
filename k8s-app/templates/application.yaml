@@ -1,0 +1,198 @@
+{{- include "validateWorkloadType" . -}}
+
+{{- if .Values.application.enabled }}
+---
+apiVersion: apps/v1
+{{- if .Values.useDeployment }}
+kind: Deployment
+{{- else if .Values.useStatefulSet }}
+kind: StatefulSet
+{{- else if .Values.useDaemonset }}
+kind: DaemonSet
+{{- end }}
+metadata:
+  name: {{ include "k8s-app.fullname" $ }}
+  labels:
+    {{- include "k8s-app.labels" $ | nindent 4 }}
+spec:
+  {{- if not .Values.useDaemonset }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit | default 5 }}
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount | default 1 }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.useStatefulSet }}
+  serviceName: {{ include "k8s-app.fullname" . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "k8s-app.selectorLabels" . | nindent 6 }}
+  {{- if .Values.useDeployment }}
+  strategy: {{- toYaml .Values.strategy | nindent 4 }}
+  {{- else }}
+  updateStrategy: {{- toYaml .Values.updateStrategy | nindent 4 }}
+  {{- end }}
+  minReadySeconds: {{ .Values.minReadySeconds | default 5 }}
+  template:
+    metadata:
+      annotations:
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "k8s-app.labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ . }}
+      {{- end }}
+      enableServiceLinks: {{ .Values.enableServiceLinks }}
+      {{- with .Values.runtimeClassName }}
+      runtimeClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName | quote }}
+      {{- end }}
+      {{- if .Values.schedulerName }}
+      schedulerName: {{ .Values.schedulerName | quote }}
+      {{- end }}
+      serviceAccountName: {{ include "k8s-app.serviceAccountName" . }}
+      {{- if .Values.dnsPolicy }}
+      dnsPolicy: {{ .Values.dnsPolicy }}
+      {{- end }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.podSecurityContext.enabled }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- . | toYaml | nindent 8 }}
+        {{- if $.Values.global.initContainers.enabled }}
+          image: "{{ $.Values.global.initContainers.image.repository | default $.Values.global.image.repository }}:{{ $.Values.global.initContainers.image.tag | default $.Values.global.image.tag }}"
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: {{ include "k8s-app.fullname" . }}
+          {{- if .Values.containerSecurityContext.enabled }}
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          image: "{{ .Values.global.image.repository | default .Values.image.repository }}:{{ .Values.global.image.tag | default .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.global.image.pullPolicy | default .Values.image.pullPolicy }}
+          {{- with .Values.application.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.application.ports }}
+          ports:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.application.probes }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- with .Values.application.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.application.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.application.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.application.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with (default .Values.application.resources .Values.resources) }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: localtime
+              mountPath: /etc/localtime
+              readOnly: true
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if and .Values.persistence.enabled .Values.persistence.mountPath }}
+            - mountPath: {{ .Values.persistence.mountPath }}
+              name: "{{ include "k8s-app.fullname" . }}-volume"
+          {{- end }}
+          {{- if and .Values.useStatefulSet .Values.volumeClaimTemplates.persistence.enabled .Values.volumeClaimTemplates.persistence.mountPath }}
+            - mountPath: {{ .Values.volumeClaimTemplates.persistence.mountPath }}
+              name: "{{ include "k8s-app.fullname" . }}-pvc"
+          {{- end }}
+      {{- with .Values.extraContainers }}
+      {{- range . }}
+        {{- if $.Values.global.extraContainers.enabled }}
+          {{- $_ := set . "image" (print ($.Values.global.extraContainers.image.repository | default $.Values.global.image.repository) ":" ($.Values.global.extraContainers.image.tag | default $.Values.global.image.tag)) }}
+        {{- end }}
+      {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: localtime
+          hostPath:
+            path: /etc/localtime
+            type: File
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.persistence.enabled }}
+        - name: "{{ include "k8s-app.fullname" . }}-volume"
+          persistentVolumeClaim:
+            claimName: "{{ include "k8s-app.fullname" . }}-claim"
+      {{- end }}
+      {{- if .Values.hostNetwork }}
+      hostNetwork: {{ .Values.hostNetwork }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if and .Values.useStatefulSet .Values.volumeClaimTemplates.persistence.enabled }}
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: "{{ include "k8s-app.fullname" . }}-pvc"
+        labels:
+          {{- include "k8s-app.labels" $ | nindent 10 }}
+      spec:
+        accessModes:
+          - {{ .Values.volumeClaimTemplates.persistence.accessMode | quote }}
+        storageClassName: {{ .Values.volumeClaimTemplates.persistence.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.volumeClaimTemplates.persistence.size | quote }}
+  {{- end }}
+{{- end }}

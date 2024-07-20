@@ -1,0 +1,5 @@
+apiVersion: v2
+description: A Helm chart for deploying applications in Kubernetes
+name: k8s-app
+type: application
+version: 1.0.0

@@ -1,0 +1,21 @@
+{{- if .Values.persistence.enabled }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: "{{ include "k8s-app.fullname" . }}-claim"
+  labels:
+    {{- include "k8s-app.labels" . | nindent 4 }}
+  annotations:
+spec:
+  {{- with .Values.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  accessModes:
+    - {{ .Values.persistence.accessMode | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size | quote }}
+  {{- with .Values.persistence.volumeName }}
+  volumeName: {{ . | quote }}
+  {{- end }}
+{{- end }}

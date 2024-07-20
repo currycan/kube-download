@@ -1,0 +1,94 @@
+{{- if .Values.batch.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "k8s-app.fullname" . }}-batch-config
+data:
+  {{- range .Values.batch.jobList }}
+  {{ .jobName }}: |
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: #K8S_JOB_NAME#
+      labels:
+        {{- include "k8s-app.labels" $ | nindent 8 }}
+        exposed: "True"
+        component: job
+        job-name: #K8S_JOB_NAME#
+        CTM_APPLICATION: "not_set_on_job|#APPLIC#"
+        CTM_GROUP: "not_set_on_job|#APPLGROUP#"
+        CTM_JOBNAME: "not_set_on_job|#JOBNAME#"
+        CTM_ORDERID: "not_set_on_job|#ORDERID#"
+    spec:
+      backoffLimit: {{ $.Values.batch.backoffLimit | default 0 }}
+      ttlSecondsAfterFinished: {{ .ttlSecondsAfterFinished | default 100 }}
+      template:
+        metadata:
+          labels:
+            {{- include "k8s-app.labels" $ | nindent 12 }}
+        spec:
+          restartPolicy: {{ $.Values.batch.restartPolicy | default "Never" }}
+          serviceAccountName: default
+
+          {{- if .Values.podSecurityContext.enabled }}
+          {{- with .Values.podSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          containers:
+          - name: #K8S_JOB_NAME#
+            {{- if .Values.containerSecurityContext.enabled }}
+            {{- with $.Values.containerSecurityContext }}
+            securityContext:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+            {{- end }}
+            image: "{{ $.Values.global.image.repository | default $.Values.batch.image.repository }}:{{ $.Values.global.image.tag | default $.Values.batch.image.tag }}"
+            imagePullPolicy: {{ $.Values.global.image.pullPolicy | default $.Values.batch.image.pullPolicy }}
+            {{- if .command }}
+            command:
+              {{- toYaml .command | nindent 14 }}
+            {{- else }}
+            command: ["/bin/sh","-c"]
+            {{- end }}
+            {{- if .args }}
+            args: {{- toYaml .args | nindent 14 }}
+            {{- else }}
+            args: ["#K8S_CMD#"]
+            {{- end }}
+            {{- if $.Values.batch.resources }}
+            resources:
+              {{- toYaml $.Values.batch.resources | nindent 14 }}
+            {{- end }}
+            {{- with .volumeMounts }}
+            volumeMounts:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+            {{- with .envFrom }}
+            envFrom:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+            {{- with .env }}
+            env:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+          {{- with $.Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml $ | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.affinity }}
+          affinity:
+            {{- toYaml $ | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.tolerations }}
+          tolerations:
+            {{- toYaml $ | nindent 12 }}
+          {{- end }}
+          {{- if .volumeMounts }}
+          volumes:
+          {{- toYaml $.Values.batch.volumes | nindent 10 }}
+          {{- end }}
+  {{- end }}
+{{- end }}

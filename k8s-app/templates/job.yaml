@@ -1,0 +1,128 @@
+{{- range $job := .Values.jobs }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ include "k8s-app.fullname" $ }}-{{ .name }}"
+  annotations:
+    helm.sh/hook: pre-upgrade
+    {{- with .annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "k8s-app.labels" $ | nindent 4 }}
+    app/component: job
+    job-name: "{{ include "k8s-app.fullname" $ }}-{{ .name }}"
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    app.kubernetes.io/name: "{{ include "k8s-app.fullname" $ }}-{{ .name }}"
+    app.kubernetes.io/instance: "{{ $.Release.Name }}-{{ .name }}"
+spec:
+  backoffLimit: {{ .backoffLimit | default "0" }}
+  activeDeadlineSeconds: {{ .activeDeadlineSeconds | default "43200" }}
+  template:
+    metadata:
+      labels:
+        {{- include "k8s-app.labels" $ | nindent 8 }}
+        {{- with .labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        app.kubernetes.io/name: "{{ include "k8s-app.fullname" $ }}-{{ .name }}"
+        app.kubernetes.io/instance: "{{ $.Release.Name }}-{{ .name }}"
+    spec:
+      restartPolicy: {{ .restartPolicy | default "Never" }}
+      serviceAccountName: {{ .serviceAccount | default "default" }}
+      {{- if .Values.podSecurityContext.enabled }}
+      {{- with (.podSecurityContext | default $.Values.podSecurityContext) }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ .name }}
+        {{- if .Values.containerSecurityContext.enabled }}
+        {{- with (.containerSecurityContext | default $.Values.containerSecurityContext) }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- end }}
+        image: "{{ $.Values.global.image.repository | default $.Values.image.repository }}:{{ $.Values.global.image.tag | default $.Values.image.tag }}"
+        imagePullPolicy: {{ $.Values.global.image.pullPolicy | default $.Values.image.pullPolicy }}
+        {{- with .command }}
+        command:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .args }}
+        args:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with (.resources | default $.Values.resources) }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if .volumeMounts }}
+        volumeMounts:
+          {{- toYaml .volumeMounts | nindent 10 }}
+        {{- end }}
+        {{- if .envFrom }}
+        envFrom:
+          {{- toYaml .envFrom | nindent 10 }}
+        {{- end }}
+        {{- if .env }}
+        env:
+          {{- toYaml .env | nindent 10 }}
+        {{- end }}
+      {{- if .extraContainers }}
+      {{- range $container := .extraContainers }}
+      - name: {{ .name }}
+        {{- with (.securityContext | default $job.podSecurityContext) }}
+        securityContext:
+          {{- toYaml . | nindent 14 }}
+        {{- end }}
+        image: {{ .image | default $job.image }}
+        imagePullPolicy: {{ .imagePullPolicy | default $job.imagePullPolicy }}
+        {{- with .command }}
+        command:
+          {{- toYaml . | nindent 14 }}
+        {{- end }}
+        {{- with .args }}
+        args:
+          {{- toYaml . | nindent 14 }}
+        {{- end }}
+        {{- with (.resources | default $job.resources) }}
+        resources:
+          {{- toYaml . | nindent 14 }}
+        {{- end }}
+        {{- with (.volumeMounts | default $job.volumeMounts) }}
+        volumeMounts:
+          {{ toYaml . | nindent 14 }}
+        {{- end }}
+        {{- with (.envFrom | default $job.envFrom) }}
+        envFrom:
+          {{ toYaml . | nindent 14 }}
+        {{- end }}
+        {{- with (.env | default $job.env) }}
+        env:
+          {{ toYaml . | nindent 14 }}
+        {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- with .nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .volumes }}
+      volumes:
+        {{- toYaml .volumes | nindent 8 }}
+      {{- end }}
+---
+{{- end }}

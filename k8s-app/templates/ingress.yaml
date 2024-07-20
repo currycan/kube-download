@@ -1,0 +1,97 @@
+{{- if .Values.ingress.enabled -}}
+{{- $enableTLS := false }}
+{{ $hosts := .Values.ingress.hosts }}
+{{- range $key, $h := $hosts }}
+  {{- if $h.tls }}
+    {{ $enableTLS = true }}
+  {{- end }}
+{{- end }}
+---
+{{- $fullName := include "k8s-app.fullname" . -}}
+{{- $servicePorts := .Values.service.ports -}}
+{{- if and .Values.ingress.className (not (semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className }}
+  {{- end }}
+{{- end }}
+{{ if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  labels:
+    {{- include "k8s-app.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if and .Values.ingress.className (semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- else if $enableTLS }}
+  tls:
+    {{- range .Values.ingress.hosts }}
+    {{- if .tls }}
+    - hosts:
+        - {{ .host }}
+      secretName: {{ .tls.secretName | default (printf "%s-tls" ( include "k8s-app.fullname" $ )) }}
+    {{- end }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+        {{- range .paths }}
+          {{- if kindIs "map" . }}
+          - path: {{ .path }}
+          {{- else }}
+          - path: {{ . }}
+          {{- end }}
+          {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+            {{- if kindIs "map" . }}
+            pathType: {{ .pathType | default "ImplementationSpecific" | quote }}
+            {{- else }}
+            pathType: "ImplementationSpecific"
+            {{- end }}
+          {{- end }}
+            backend:
+            {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                {{- if kindIs "map" . }}
+                name: {{ .name | default $fullName }}
+                port:
+                  number: {{ .port | default (first $servicePorts).port }}
+                {{- else }}
+                name: {{ $fullName }}
+                port:
+                  number: {{ (first $servicePorts).port }}
+                {{- end }}
+            {{- else }}
+              {{- if kindIs "map" . }}
+              serviceName: {{ .name | default $fullName }}
+              servicePort: {{ .port }}
+              {{- else }}
+              serviceName: {{ $fullName }}
+              servicePort: {{ .port | default (first $servicePorts).port }}
+              {{- end }}
+            {{- end }}
+        {{- end }}
+    {{- end }}
+{{- end }}

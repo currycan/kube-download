@@ -1,0 +1,18 @@
+{{- if and .Values.autoscaling.enabled .Values.autoscaling.triggerAuthentication -}}
+{{- range .Values.autoscaling.triggerAuthentication }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: {{ .name | quote }}
+spec:
+  {{- with .secretTargetRef }}
+  secretTargetRef:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .env }}
+  env:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+{{- end }}

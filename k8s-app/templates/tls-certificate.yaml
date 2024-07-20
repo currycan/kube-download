@@ -1,0 +1,64 @@
+{{- $createCertificate := false }}
+{{- $tlshosts := list }}
+{{- $issuer := list .Values.certificate.issuer }}
+
+{{ $hosts := .Values.ingress.hosts }}
+{{- range $key, $h := $hosts }}
+  {{- if $h.tls }}
+    {{- if not $h.tls.secretName }}
+      {{ $createCertificate = true }}
+      {{- $tlshosts = append $tlshosts $h.host }}
+      {{- if $h.tls.issuer }}
+        {{- $issuer = append $issuer $h.tls.issuer }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $createCertificate }}
+{{- if eq (len ($issuer | uniq)) 1 }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "k8s-app.fullname" . }}-crt
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.certificate.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  commonName: {{ first $tlshosts }}
+  # isCA: {{ .Values.certificate.isCA | default "false" }}
+  secretName: {{ include "k8s-app.fullname" . }}-tls
+  duration: {{ .Values.certificate.duration | default "8760h0m0s" }}  #365d
+  renewBefore: {{ .Values.certificate.renewBefore | default "1080h0m0s" }}  #45d
+  subject:
+    {{- if .Values.certificate.organizations }}
+    organizations:
+      {{- toYaml .Values.certificate.organizations | nindent 6 }}
+    {{- else }}
+    organizations:
+      - Amundi
+    {{- end }}
+  {{- with rest $tlshosts }}
+  dnsNames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.certificate.dnsNames }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  privateKey:
+    algorithm: {{ .Values.certificate.algorithm | default "RSA" }}
+    encoding: {{ .Values.certificate.encoding | default "PKCS1" }}
+    size: {{ .Values.certificate.size | default "2048" }}
+    rotationPolicy: {{ .Values.certificate.rotationPolicy | default "Always" }}
+  issuerRef:
+    {{- with (first $issuer) }}
+    name: {{ . }}
+    {{- end }}
+    kind: ClusterIssuer
+    group: cert-manager.io
+{{- else }}
+{{- fail "The current certificate template can't handle multiple issuers for the same ingress. Consider adding this feature." }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,226 @@
+{{- if .Values.autoscaling.enabled -}}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "k8s-app.fullname" . }}
+spec:
+  scaleTargetRef:
+    apiVersion: {{ .Values.autoscaling.scaleTargetRef.apiVersion | default "apps/v1" | quote }}
+    kind: {{ .Values.autoscaling.scaleTargetRef.kind | default "Deployment" | quote }}
+    name: {{ include "k8s-app.fullname" . | quote }}
+    {{- if .Values.autoscaling.scaleTargetRef.envSourceContainerName }}
+    envSourceContainerName: {{ .Values.autoscaling.scaleTargetRef.envSourceContainerName | quote }}
+    {{- end }}
+  {{- with .Values.autoscaling.pollingInterval }}
+  pollingInterval: {{ . }}
+  {{- end }}
+  {{- with .Values.autoscaling.cooldownPeriod }}
+  cooldownPeriod: {{ . }}
+  {{- end }}
+  {{- with .Values.autoscaling.idleReplicaCount }}
+  idleReplicaCount: {{ . }}
+  {{- end }}
+  {{- with .Values.autoscaling.minReplicaCount }}
+  minReplicaCount: {{ . }}
+  {{- end }}
+  {{- with .Values.autoscaling.maxReplicaCount }}
+  maxReplicaCount: {{ . }}
+  {{- end }}
+  {{- with .Values.autoscaling.fallback }}
+  fallback:
+    failureThreshold: {{ .failureThreshold | quote }}
+    replicas: {{ .replicas | quote }}
+  {{- end }}
+  {{- with .Values.autoscaling.advanced }}
+  advanced:
+    restoreToOriginalReplicaCount: {{ .restoreToOriginalReplicaCount | default "false" }}
+    {{- with .behavior }}
+    horizontalPodAutoscalerConfig:
+      behavior:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.autoscaling.triggers }}
+  triggers:
+    {{- range .azureservicebus }}
+    - type: azure-servicebus
+      metadata:
+        {{- if .queueName }}
+        queueName: {{ .queueName | quote }}
+        {{- else if .topicName }}
+        topicName: {{ .topicName | quote }}
+        {{- else }}
+        {{- fail "Either queueName or topicName key must be defined." }}
+        {{- end }}
+        {{- if .subscriptionName }}
+        subscriptionName: {{ .subscriptionName | quote }}
+        {{- end }}
+        {{- if .namespace }}
+        namespace: {{ .namespace | quote }}
+        {{- end }}
+        {{- if .connectionFromEnv }}
+        connectionFromEnv: {{ .connectionFromEnv | quote }}
+        {{- end }}
+        {{- if .messageCount }}
+        messageCount: {{ .messageCount | quote }}
+        {{- end }}
+        {{- if .activationMessageCount }}
+        activationMessageCount: {{ .activationMessageCount | quote }}
+        {{- end }}
+        {{- if .cloud }}
+        cloud: {{ .cloud | quote }}
+        {{- end }}
+        {{- if .endpointSuffix }}
+        endpointSuffix: {{ .endpointSuffix | quote }}
+        {{- end }}
+      {{- if .authenticationRef }}
+      authenticationRef:
+        name: {{ .authenticationRef.name | quote }}
+      {{- end }}
+    {{- end }}
+    {{- range .prometheus }}
+    - type: prometheus
+      metricType: {{ .metricType | default "Value" }}
+      metadata:
+        serverAddress: {{ tpl ( .serverAddress | default "" ) $ | default ( tpl "http://keda-prometheus.{{ .Release.Namespace }}.svc.cluster.local:9090" $ ) }}
+        metricName: {{ .metricName | quote }}
+        threshold: {{ .threshold | quote }}
+        query: {{ tpl .query $ }}
+        {{- if .activationThreshold }}
+        activationThreshold: {{ .activationThreshold | quote }}
+        {{- end }}
+        {{- if .authMode }}
+        authMode: {{ .authMode | quote }}
+        {{- end }}
+        {{- if .namespace }}
+        namespace: {{ .namespace | quote }}
+        {{- end }}
+        {{- if .cortexOrgId }}
+        cortexOrgId: {{ .cortexOrgId | quote }}
+        {{- end }}
+        {{- if .ignoreNullValues }}
+        ignoreNullValues: {{ .ignoreNullValues | quote }}
+        {{- end }}
+      {{- if .authenticationRef }}
+      authenticationRef:
+        name: {{ .authenticationRef.name | quote }}
+      {{- end }}
+    {{- end }}
+    {{- range .kafka }}
+    - type: kafka
+      metricType: {{ .metricType | default "Value" }}
+      metadata:
+        bootstrapServers: {{ .bootstrapServers | quote }}
+        consumerGroup: {{ .consumerGroup | quote }}
+        topic: {{ .topic | quote }}
+        {{- if .lagThreshold }}
+        lagThreshold: {{ .lagThreshold | quote }}
+        {{- end }}
+        {{- if .offsetResetPolicy }}
+        offsetResetPolicy: {{ .offsetResetPolicy | quote }}
+        {{- end }}
+      {{- if .authenticationRef }}
+      authenticationRef:
+        name: {{ .authenticationRef.name | quote }}
+      {{- end }}
+    {{- end }}
+    {{- range .rabbitmq }}
+    - type: rabbitmq
+      metricType: {{ .metricType | default "Value" }}
+      metadata:
+        {{- if .host }}
+        host: {{ .host | quote }}
+        {{- end }}
+        protocol: {{ .protocol | default "auto" | quote }}
+        mode: {{ .mode | default "QueueLength" | quote }}
+        value: {{ .value | quote }}
+        {{- if .activationValue }}
+        activationValue: {{ .activationValue | quote }}
+        {{- end }}
+        queueName: {{ .queueName | quote }}
+        {{- if .vhostName }}
+        vhostName: {{ .vhostName | quote }}
+        {{- end }}
+        {{- if .hostFromEnv }}
+        hostFromEnv: {{ .hostFromEnv | quote }}
+        {{- end }}
+      {{- if .authenticationRef }}
+      authenticationRef:
+        name: {{ .authenticationRef.name | quote }}
+      {{- end }}
+    {{- end }}
+    {{- range .artemis }}
+    - type: artemis-queue
+      metricType: {{ .metricType | default "Value" }}
+      metadata:
+        managementEndpoint: {{ .managementEndpoint | quote }}
+        queueName: {{ .queueName | quote }}
+        brokerName: {{ .brokerName | quote }}
+        brokerAddress: {{ .brokerAddress | quote }}
+        queueLength: {{ .queueLength | quote }}
+        activationQueueLength: {{ .activationQueueLength | quote }}
+        username: {{ .username | quote }}
+        password: {{ .password | quote }}
+        {{- if .restApiTemplate }}
+        restApiTemplate: {{ .restApiTemplate | quote }}
+        {{- end }}
+      {{- if .authenticationRef }}
+      authenticationRef:
+        name: {{ .authenticationRef.name | quote }}
+      {{- end }}
+    {{- end }}
+    {{- range .activemq }}
+    - type: activemq
+      metricType: {{ .metricType | default "Value" }}
+      metadata:
+        managementEndpoint: {{ .managementEndpoint | quote }}
+        destinationName: {{ .destinationName | quote }}
+        brokerName: {{ .brokerName | quote }}
+        targetQueueSize: {{ .targetQueueSize | quote }}
+        activationTargetQueueSize: {{ .activationTargetQueueSize | quote }}
+      {{- if .authenticationRef }}
+      authenticationRef:
+        name: {{ .authenticationRef.name | quote }}
+      {{- end }}
+    {{- end }}
+    {{- range .cpu }}
+    - type: cpu
+      metricType: {{ .metricType | default "Utilization" }}
+      metadata:
+        value: {{ .value | quote }}
+        {{- if .containerName }}
+        containerName: {{ .containerName | quote }}
+        {{- end }}
+    {{- end }}
+    {{- range .memory }}
+    - type: memory
+      metricType: {{ .metricType | default "Utilization" }}
+      metadata:
+        value: {{ .value | quote }}
+        {{- if .containerName }}
+        containerName: {{ .containerName | quote }}
+        {{- end }}
+    {{- end }}
+    {{- range .metricsapi }}
+    - type: metrics-api
+      metricType: {{ .metricType | default "Value" }}
+      metadata:
+        targetValue: {{ .targetValue | quote }}
+        activationTargetValue: {{ .activationTargetValue | quote }}
+        url: {{ .url | quote }}
+        valueLocation: {{ .valueLocation | quote }}
+        {{- if .authMode }}
+        authMode: {{ .authMode | quote }}
+        {{- end }}
+      {{- if eq .authMode "apiKey" }}
+        method: {{ .method | quote }}
+        keyParamName: {{ .keyParamName | quote }}
+      {{- end }}
+      {{- if .authenticationRef }}
+      authenticationRef:
+        name: {{ .authenticationRef.name | quote }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}

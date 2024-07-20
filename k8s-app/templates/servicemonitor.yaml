@@ -1,0 +1,54 @@
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ template "k8s-app.fullname" . }}
+  {{- if .Values.monitoring.serviceMonitor.namespace }}
+  namespace: {{ .Values.monitoring.serviceMonitor.namespace }}
+  {{- end }}
+  labels:
+    {{- include "k8s-app.labels" $ | nindent 4 }}
+    {{- with .Values.monitoring.serviceMonitor.selector }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.monitoring.serviceMonitor.labels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  jobLabel: "{{ .Release.Name }}"
+  {{- with .Values.monitoring.serviceMonitor.endpoints }}
+  endpoints:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      {{- include "k8s-app.selectorLabels" . | nindent 6 }}
+  {{- if .Values.monitoring.serviceMonitor.targetLabels }}
+  targetLabels:
+  {{- range .Values.monitoring.serviceMonitor.targetLabels }}
+    - {{ . }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.monitoring.serviceMonitor.podTargetLabels }}
+  podTargetLabels:
+  {{- range .Values.monitoring.serviceMonitor.podTargetLabels }}
+    - {{ . }}
+  {{- end }}
+  {{- end }}
+  {{- with .Values.monitoring.serviceMonitor.sampleLimit }}
+  sampleLimit: {{ . }}
+  {{- end }}
+  {{- with .Values.monitoring.serviceMonitor.labelLimit }}
+  labelLimit: {{ . }}
+  {{- end }}
+  {{- with .Values.monitoring.serviceMonitor.labelNameLengthLimit }}
+  labelNameLengthLimit: {{ . }}
+  {{- end }}
+  {{- with .Values.monitoring.serviceMonitor.labelValueLengthLimit }}
+  labelValueLengthLimit: {{ . }}
+  {{- end }}
+{{- end }}

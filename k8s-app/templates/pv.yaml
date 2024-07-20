@@ -1,0 +1,25 @@
+{{- if and .Values.persistence.enabled .Values.persistence.volumeName}}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: "{{ .Values.persistence.volumeName }}"
+  labels:
+    {{- include "k8s-app.labels" . | nindent 4 }}
+  annotations:
+spec:
+  capacity:
+    storage: {{ .Values.persistence.size | quote }}
+  accessModes:
+    - {{ .Values.persistence.accessMode | quote }}
+  {{- with .Values.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.persistence.csi }}
+  csi:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.persistence.mountOptions }}
+  mountOptions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
