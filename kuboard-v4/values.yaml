@@ -1,0 +1,83 @@
+k8s-app:
+  fullnameOverride: "kuboard-v4"
+  replicaCount: 1
+
+  image:
+    repository: docker.io/eipwork/kuboard
+    pullPolicy: IfNotPresent
+    tag: "v4"
+
+  useDeployment: true
+  useStatefulSet: false
+  useDaemonset: false
+
+  ingress:
+    enabled: true
+    className: "nginx"
+    hosts:
+    - host: kuboard.local.com
+      paths:
+      - /
+      pathType: ImplementationSpecific
+
+  resources:
+    limits:
+      cpu: 2
+      memory: 1.5Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+  labels:
+    cmdb/app_id: ""
+    cmdb/id: ""
+    cmdb/name: "kuboard-v4"
+    trigramme: ""
+    cmdb/trigram: ""
+    exposed: "true"
+    app/component: "kuboard"
+    app/language: "java"
+
+  podAnnotations:
+    customChecksum: ANY_SALT
+
+  podSecurityContext:
+    enabled: false
+
+  containerSecurityContext:
+    enabled: false
+
+  service:
+    ports:
+      - port: 80
+        name: http
+
+  application:
+    ports:
+      - name: http
+        containerPort: 80
+        protocol: TCP
+    probes:
+      livenessProbe:
+        failureThreshold: 5
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+        httpGet:
+          path: /
+          port: http
+      readinessProbe:
+        failureThreshold: 5
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+        httpGet:
+          path: /
+          port: http
+    envFrom:
+      - configMapRef:
+          name: kuboard-v4-config
+      - secretRef:
+          name: kuboard-v4-secret

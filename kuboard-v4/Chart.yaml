@@ -1,0 +1,8 @@
+apiVersion: v2
+name: kuboard-v3
+version: "1.0.0"
+description: A platform to manager Kubernetes
+dependencies:
+- name: k8s-app
+  version: 1.0.0
+  repository: "https://helm-virtual"

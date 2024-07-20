@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kuboard-v4-config
+data:
+  TZ: "Asia/Shanghai"
+  DB_DRIVER: "com.mysql.cj.jdbc.Driver"
+  DB_URL: "jdbc:mysql://kuboard-db-mysql.kuboard.svc.cluster.local:3306/kuboard?serverTimezone=Asia/Shanghai"
+
+  # DB_DRIVER: "org.postgresql.Driver"
+  # DB_URL: "jdbc:postgresql://postgres-postgresql.postgres.svc.cluster.local:5432/kuboard?currentSchema=kuboard&characterEncoding=UTF8"
